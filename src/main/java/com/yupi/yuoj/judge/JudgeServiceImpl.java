@@ -10,7 +10,7 @@ import com.yupi.yuoj.judge.codesandbox.model.ExecuteCodeRequest;
 import com.yupi.yuoj.judge.codesandbox.model.ExecuteCodeResponse;
 import com.yupi.yuoj.judge.strategy.JudgeContext;
 import com.yupi.yuoj.model.dto.question.JudgeCase;
-import com.yupi.yuoj.model.dto.questionsubmit.JudgeInfo;
+import com.yupi.yuoj.judge.codesandbox.model.JudgeInfo;
 import com.yupi.yuoj.model.entity.Question;
 import com.yupi.yuoj.model.entity.QuestionSubmit;
 import com.yupi.yuoj.model.enums.QuestionSubmitStatusEnum;
@@ -97,7 +97,7 @@ public class JudgeServiceImpl implements JudgeService{
         if (!update) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "题目状态更新错误");
         }
-        QuestionSubmit questionSubmitResult = questionSubmitService.getById(questionId);
+        QuestionSubmit questionSubmitResult = questionSubmitService.getById(questionSubmitId);
         return questionSubmitResult;
     }
 }

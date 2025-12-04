@@ -3,9 +3,10 @@ package com.yupi.yuoj.judge.strategy;
 import cn.hutool.json.JSONUtil;
 import com.yupi.yuoj.model.dto.question.JudgeCase;
 import com.yupi.yuoj.model.dto.question.JudgeConfig;
-import com.yupi.yuoj.model.dto.questionsubmit.JudgeInfo;
+import com.yupi.yuoj.judge.codesandbox.model.JudgeInfo;
 import com.yupi.yuoj.model.entity.Question;
 import com.yupi.yuoj.model.enums.JudgeInfoMessageEnum;
+import com.yupi.yuoj.utils.MemoryUnitUtil;
 
 import java.util.List;
 
@@ -22,7 +23,8 @@ public class JavaLanguageJudgeStrategy implements JudgeStrategy {
     @Override
     public JudgeInfo doJudge(JudgeContext judgeContext) {
         JudgeInfo judgeInfo = judgeContext.getJudgeInfo();
-        Long memory = judgeInfo.getMemory();
+        Long memoryBytes = judgeInfo.getMemory();
+        long memoryKb = MemoryUnitUtil.bytesToKb(memoryBytes);
         Long time = judgeInfo.getTime();
         List<String> inputList = judgeContext.getInputList();
         List<String> outputList = judgeContext.getOutputList();
@@ -30,7 +32,7 @@ public class JavaLanguageJudgeStrategy implements JudgeStrategy {
         List<JudgeCase> judgeCaseList = judgeContext.getJudgeCaseList();
         JudgeInfoMessageEnum judgeInfoMessageEnum = JudgeInfoMessageEnum.ACCEPTED;
         JudgeInfo judgeInfoResponse = new JudgeInfo();
-        judgeInfoResponse.setMemory(memory);
+        judgeInfoResponse.setMemory(memoryKb);
         judgeInfoResponse.setTime(time);
         // 先判断沙箱执行的结果输出数量是否和预期输出数量相等
         if (outputList.size() != inputList.size()) {
@@ -52,7 +54,7 @@ public class JavaLanguageJudgeStrategy implements JudgeStrategy {
         JudgeConfig judgeConfig = JSONUtil.toBean(judgeConfigStr, JudgeConfig.class);
         Long needMemoryLimit = judgeConfig.getMemoryLimit();
         Long needTimeLimit = judgeConfig.getTimeLimit();
-        if (memory > needMemoryLimit) {
+        if (memoryKb > needMemoryLimit) {
             judgeInfoMessageEnum = JudgeInfoMessageEnum.MEMORY_LIMIT_EXCEEDED;
             judgeInfoResponse.setMessage(judgeInfoMessageEnum.getValue());
             return judgeInfoResponse;
