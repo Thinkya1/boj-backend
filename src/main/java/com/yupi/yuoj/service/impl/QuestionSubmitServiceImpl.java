@@ -26,6 +26,7 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Resource;
 import java.util.List;
@@ -40,6 +41,7 @@ import java.util.stream.Collectors;
 * @createDate 2023-08-07 20:58:53
 */
 @Service
+@Slf4j
 public class QuestionSubmitServiceImpl extends ServiceImpl<QuestionSubmitMapper, QuestionSubmit>
     implements QuestionSubmitService{
 
@@ -99,7 +101,11 @@ public class QuestionSubmitServiceImpl extends ServiceImpl<QuestionSubmitMapper,
         Long questionSubmitId = questionSubmit.getId();
         // 执行判题服务
         CompletableFuture.runAsync(() -> {
-            judgeService.doJudge(questionSubmitId);
+            try {
+                judgeService.doJudge(questionSubmitId);
+            } catch (Exception e) {
+                log.error("判题异步执行异常，提交id={}", questionSubmitId, e);
+            }
         });
         return questionSubmitId;
     }
