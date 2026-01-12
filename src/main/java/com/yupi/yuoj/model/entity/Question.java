@@ -20,6 +20,11 @@ public class Question implements Serializable {
     private Long id;
 
     /**
+     * 题号
+     */
+    private Integer questionNumber;
+
+    /**
      * 标题
      */
     private String title;

@@ -26,7 +26,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
-* @author 李鱼皮
+* @author biny
 * @description 针对表【question(题目)】的数据库操作Service实现
 * @createDate 2023-08-07 20:58:00
 */
@@ -89,6 +89,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question>
             return queryWrapper;
         }
         Long id = questionQueryRequest.getId();
+        Integer questionNumber = questionQueryRequest.getQuestionNumber();
         String title = questionQueryRequest.getTitle();
         String content = questionQueryRequest.getContent();
         List<String> tags = questionQueryRequest.getTags();
@@ -107,6 +108,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question>
             }
         }
         queryWrapper.eq(ObjectUtils.isNotEmpty(id), "id", id);
+        queryWrapper.eq(ObjectUtils.isNotEmpty(questionNumber), "questionNumber", questionNumber);
         queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
         queryWrapper.eq("isDelete", false);
         queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
@@ -152,6 +154,22 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question>
         }).collect(Collectors.toList());
         questionVOPage.setRecords(questionVOList);
         return questionVOPage;
+    }
+
+    @Override
+    public synchronized Integer getNextQuestionNumber() {
+        final int baseNumber = 1000;
+        Question latest = this.lambdaQuery()
+                .select(Question::getQuestionNumber)
+                .isNotNull(Question::getQuestionNumber)
+                .orderByDesc(Question::getQuestionNumber)
+                .last("limit 1")
+                .one();
+        if (latest == null || latest.getQuestionNumber() == null) {
+            return baseNumber;
+        }
+        int nextNumber = latest.getQuestionNumber() + 1;
+        return Math.max(nextNumber, baseNumber);
     }
 
 

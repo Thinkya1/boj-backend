@@ -15,6 +15,7 @@ import com.yupi.yuoj.model.entity.QuestionSubmit;
 import com.yupi.yuoj.model.entity.User;
 import com.yupi.yuoj.model.enums.QuestionSubmitLanguageEnum;
 import com.yupi.yuoj.model.enums.QuestionSubmitStatusEnum;
+import com.yupi.yuoj.model.vo.QuestionVO;
 import com.yupi.yuoj.model.vo.QuestionSubmitVO;
 import com.yupi.yuoj.service.QuestionService;
 import com.yupi.yuoj.service.QuestionSubmitService;
@@ -28,11 +29,13 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
-* @author 李鱼皮
+* @author biny
 * @description 针对表【question_submit(题目提交)】的数据库操作Service实现
 * @createDate 2023-08-07 20:58:53
 */
@@ -86,6 +89,13 @@ public class QuestionSubmitServiceImpl extends ServiceImpl<QuestionSubmitMapper,
         if (!save){
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "数据插入失败");
         }
+        boolean updateCount = questionService.update()
+                .eq("id", questionId)
+                .setSql("submitNum = IFNULL(submitNum, 0) + 1")
+                .update();
+        if (!updateCount) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新提交计数失败");
+        }
         Long questionSubmitId = questionSubmit.getId();
         // 执行判题服务
         CompletableFuture.runAsync(() -> {
@@ -110,11 +120,23 @@ public class QuestionSubmitServiceImpl extends ServiceImpl<QuestionSubmitMapper,
         String language = questionSubmitQueryRequest.getLanguage();
         Integer status = questionSubmitQueryRequest.getStatus();
         Long questionId = questionSubmitQueryRequest.getQuestionId();
+        Integer questionNumber = questionSubmitQueryRequest.getQuestionNumber();
         Long userId = questionSubmitQueryRequest.getUserId();
         String sortField = questionSubmitQueryRequest.getSortField();
         String sortOrder = questionSubmitQueryRequest.getSortOrder();
 
         // 拼接查询条件
+        if (ObjectUtils.isNotEmpty(questionNumber)) {
+            Question question = questionService.lambdaQuery()
+                    .select(Question::getId)
+                    .eq(Question::getQuestionNumber, questionNumber)
+                    .one();
+            if (question == null) {
+                queryWrapper.eq("questionId", -1);
+                return queryWrapper;
+            }
+            questionId = question.getId();
+        }
         queryWrapper.eq(StringUtils.isNotBlank(language), "language", language);
         queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
         queryWrapper.eq(ObjectUtils.isNotEmpty(questionId), "questionId", questionId);
@@ -144,8 +166,33 @@ public class QuestionSubmitServiceImpl extends ServiceImpl<QuestionSubmitMapper,
         if (CollectionUtils.isEmpty(questionSubmitList)) {
             return questionSubmitVOPage;
         }
+        Set<Long> userIdSet = questionSubmitList.stream()
+                .map(QuestionSubmit::getUserId)
+                .collect(Collectors.toSet());
+        Map<Long, User> userIdMap = userService.listByIds(userIdSet).stream()
+                .collect(Collectors.toMap(User::getId, item -> item, (a, b) -> a));
+        Set<Long> questionIdSet = questionSubmitList.stream()
+                .map(QuestionSubmit::getQuestionId)
+                .collect(Collectors.toSet());
+        Map<Long, Question> questionIdMap = questionService.listByIds(questionIdSet).stream()
+                .collect(Collectors.toMap(Question::getId, item -> item, (a, b) -> a));
         List<QuestionSubmitVO> questionSubmitVOList = questionSubmitList.stream()
-                .map(questionSubmit -> getQuestionSubmitVO(questionSubmit, loginUser))
+                .map(questionSubmit -> {
+                    QuestionSubmitVO questionSubmitVO = getQuestionSubmitVO(questionSubmit, loginUser);
+                    User user = userIdMap.get(questionSubmit.getUserId());
+                    questionSubmitVO.setUserVO(userService.getUserVO(user));
+                    Question question = questionIdMap.get(questionSubmit.getQuestionId());
+                    if (question != null) {
+                        QuestionVO questionVO = new QuestionVO();
+                        questionVO.setId(question.getId());
+                        questionVO.setQuestionNumber(question.getQuestionNumber());
+                        questionVO.setTitle(question.getTitle());
+                        questionVO.setSubmitNum(question.getSubmitNum());
+                        questionVO.setAcceptedNum(question.getAcceptedNum());
+                        questionSubmitVO.setQuestionVO(questionVO);
+                    }
+                    return questionSubmitVO;
+                })
                 .collect(Collectors.toList());
         questionSubmitVOPage.setRecords(questionSubmitVOList);
         return questionSubmitVOPage;

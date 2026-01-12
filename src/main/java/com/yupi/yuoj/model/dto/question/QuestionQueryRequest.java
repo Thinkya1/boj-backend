@@ -14,8 +14,7 @@ import java.util.List;
 /**
  * 查询请求
  *
- * @author <a href="https://github.com/liyupi">程序员鱼皮</a>
- * @from <a href="https://yupi.icu">编程导航知识星球</a>
+ * @author biny
  */
 @EqualsAndHashCode(callSuper = true)
 @Data
@@ -25,6 +24,11 @@ public class QuestionQueryRequest extends PageRequest implements Serializable {
      * id
      */
     private Long id;
+
+    /**
+     * 题号
+     */
+    private Integer questionNumber;
 
     /**
      * 标题

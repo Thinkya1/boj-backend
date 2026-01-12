@@ -4,9 +4,12 @@ import cn.hutool.json.JSONUtil;
 import com.yupi.yuoj.model.dto.question.JudgeCase;
 import com.yupi.yuoj.model.dto.question.JudgeConfig;
 import com.yupi.yuoj.judge.codesandbox.model.JudgeInfo;
+import com.yupi.yuoj.judge.codesandbox.model.JudgeCaseResult;
 import com.yupi.yuoj.model.entity.Question;
 import com.yupi.yuoj.model.enums.JudgeInfoMessageEnum;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -26,12 +29,19 @@ public class DefaultJudgeStrategy implements JudgeStrategy {
         Long time = judgeInfo.getTime();
         List<String> inputList = judgeContext.getInputList();
         List<String> outputList = judgeContext.getOutputList();
+        if (outputList == null) {
+            outputList = Collections.emptyList();
+        }
         Question question = judgeContext.getQuestion();
         List<JudgeCase> judgeCaseList = judgeContext.getJudgeCaseList();
+        if (judgeCaseList == null) {
+            judgeCaseList = Collections.emptyList();
+        }
         JudgeInfoMessageEnum judgeInfoMessageEnum = JudgeInfoMessageEnum.ACCEPTED;
         JudgeInfo judgeInfoResponse = new JudgeInfo();
         judgeInfoResponse.setMemory(memory);
         judgeInfoResponse.setTime(time);
+        judgeInfoResponse.setCaseResults(buildCaseResults(judgeCaseList, outputList));
         // 先判断沙箱执行的结果输出数量是否和预期输出数量相等
         if (outputList.size() != inputList.size()) {
             judgeInfoMessageEnum = JudgeInfoMessageEnum.WRONG_ANSWER;
@@ -64,5 +74,19 @@ public class DefaultJudgeStrategy implements JudgeStrategy {
         }
         judgeInfoResponse.setMessage(judgeInfoMessageEnum.getValue());
         return judgeInfoResponse;
+    }
+
+    private List<JudgeCaseResult> buildCaseResults(List<JudgeCase> judgeCaseList, List<String> outputList) {
+        List<JudgeCaseResult> results = new ArrayList<>();
+        for (int i = 0; i < judgeCaseList.size(); i++) {
+            JudgeCase judgeCase = judgeCaseList.get(i);
+            String actual = i < outputList.size() ? outputList.get(i) : null;
+            JudgeCaseResult result = new JudgeCaseResult();
+            result.setIndex(i + 1);
+            result.setStatus(judgeCase != null && judgeCase.getOutput() != null
+                    && judgeCase.getOutput().equals(actual) ? "AC" : "WA");
+            results.add(result);
+        }
+        return results;
     }
 }
