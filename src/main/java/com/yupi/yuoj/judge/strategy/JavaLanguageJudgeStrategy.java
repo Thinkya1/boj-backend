@@ -1,14 +1,13 @@
 package com.yupi.yuoj.judge.strategy;
 
 import cn.hutool.json.JSONUtil;
+import com.yupi.yuoj.judge.codesandbox.model.JudgeCaseResult;
+import com.yupi.yuoj.judge.codesandbox.model.JudgeInfo;
 import com.yupi.yuoj.model.dto.question.JudgeCase;
 import com.yupi.yuoj.model.dto.question.JudgeConfig;
-import com.yupi.yuoj.judge.codesandbox.model.JudgeInfo;
-import com.yupi.yuoj.judge.codesandbox.model.JudgeCaseResult;
 import com.yupi.yuoj.model.entity.Question;
 import com.yupi.yuoj.model.enums.JudgeInfoMessageEnum;
 import com.yupi.yuoj.utils.MemoryUnitUtil;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -20,6 +19,7 @@ public class JavaLanguageJudgeStrategy implements JudgeStrategy {
 
     /**
      * 执行判题
+     *
      * @param judgeContext
      * @return
      */
@@ -39,49 +39,66 @@ public class JavaLanguageJudgeStrategy implements JudgeStrategy {
         if (judgeCaseList == null) {
             judgeCaseList = Collections.emptyList();
         }
-        JudgeInfoMessageEnum judgeInfoMessageEnum = JudgeInfoMessageEnum.ACCEPTED;
+
+        JudgeInfoMessageEnum finalResult = buildFinalResult(judgeCaseList, inputList, outputList, question, memoryKb,
+                time);
         JudgeInfo judgeInfoResponse = new JudgeInfo();
         judgeInfoResponse.setMemory(memoryKb);
         judgeInfoResponse.setTime(time);
-        judgeInfoResponse.setCaseResults(buildCaseResults(judgeCaseList, outputList));
-        // 先判断沙箱执行的结果输出数量是否和预期输出数量相等
-        if (outputList.size() != inputList.size()) {
-            judgeInfoMessageEnum = JudgeInfoMessageEnum.WRONG_ANSWER;
-            judgeInfoResponse.setMessage(judgeInfoMessageEnum.getValue());
-            return judgeInfoResponse;
-        }
-        // 依次判断每一项输出和预期输出是否相等
-        for (int i = 0; i < judgeCaseList.size(); i++) {
-            JudgeCase judgeCase = judgeCaseList.get(i);
-            if (!judgeCase.getOutput().equals(outputList.get(i))) {
-                judgeInfoMessageEnum = JudgeInfoMessageEnum.WRONG_ANSWER;
-                judgeInfoResponse.setMessage(judgeInfoMessageEnum.getValue());
-                return judgeInfoResponse;
-            }
-        }
-        // 判断题目限制
+        judgeInfoResponse.setCaseResults(buildCaseResults(judgeCaseList, outputList, finalResult));
+        judgeInfoResponse.setMessage(finalResult.getValue());
+        return judgeInfoResponse;
+    }
+
+    private JudgeInfoMessageEnum buildFinalResult(List<JudgeCase> judgeCaseList, List<String> inputList,
+            List<String> outputList, Question question, Long memoryKb, Long time) {
+        // 判题限制（优先于输出比较）
         String judgeConfigStr = question.getJudgeConfig();
         JudgeConfig judgeConfig = JSONUtil.toBean(judgeConfigStr, JudgeConfig.class);
         Long needMemoryLimit = judgeConfig.getMemoryLimit();
         Long needTimeLimit = judgeConfig.getTimeLimit();
-        if (memoryKb > needMemoryLimit) {
-            judgeInfoMessageEnum = JudgeInfoMessageEnum.MEMORY_LIMIT_EXCEEDED;
-            judgeInfoResponse.setMessage(judgeInfoMessageEnum.getValue());
-            return judgeInfoResponse;
+        if (memoryKb != null && needMemoryLimit != null && memoryKb > needMemoryLimit) {
+            return JudgeInfoMessageEnum.MEMORY_LIMIT_EXCEEDED;
         }
-
         long totalTime = time == null ? 0L : time;
-        if (totalTime > needTimeLimit) {
-            judgeInfoMessageEnum = JudgeInfoMessageEnum.TIME_LIMIT_EXCEEDED;
-            judgeInfoResponse.setMessage(judgeInfoMessageEnum.getValue());
-            return judgeInfoResponse;
+        if (needTimeLimit != null && totalTime > needTimeLimit) {
+            return JudgeInfoMessageEnum.TIME_LIMIT_EXCEEDED;
         }
-        judgeInfoResponse.setMessage(judgeInfoMessageEnum.getValue());
-        return judgeInfoResponse;
+        // 输出数量不一致
+        if (outputList.size() != inputList.size()) {
+            return JudgeInfoMessageEnum.WRONG_ANSWER;
+        }
+        // 逐个比较输出
+        for (int i = 0; i < judgeCaseList.size(); i++) {
+            JudgeCase judgeCase = judgeCaseList.get(i);
+            if (!judgeCase.getOutput().equals(outputList.get(i))) {
+                return JudgeInfoMessageEnum.WRONG_ANSWER;
+            }
+        }
+        return JudgeInfoMessageEnum.ACCEPTED;
     }
 
-    private List<JudgeCaseResult> buildCaseResults(List<JudgeCase> judgeCaseList, List<String> outputList) {
+    private List<JudgeCaseResult> buildCaseResults(List<JudgeCase> judgeCaseList, List<String> outputList,
+            JudgeInfoMessageEnum finalResult) {
         List<JudgeCaseResult> results = new ArrayList<>();
+        if (finalResult == JudgeInfoMessageEnum.TIME_LIMIT_EXCEEDED) {
+            for (int i = 0; i < judgeCaseList.size(); i++) {
+                JudgeCaseResult result = new JudgeCaseResult();
+                result.setIndex(i + 1);
+                result.setStatus("TLE");
+                results.add(result);
+            }
+            return results;
+        }
+        if (finalResult == JudgeInfoMessageEnum.MEMORY_LIMIT_EXCEEDED) {
+            for (int i = 0; i < judgeCaseList.size(); i++) {
+                JudgeCaseResult result = new JudgeCaseResult();
+                result.setIndex(i + 1);
+                result.setStatus("MLE");
+                results.add(result);
+            }
+            return results;
+        }
         for (int i = 0; i < judgeCaseList.size(); i++) {
             JudgeCase judgeCase = judgeCaseList.get(i);
             String actual = i < outputList.size() ? outputList.get(i) : null;

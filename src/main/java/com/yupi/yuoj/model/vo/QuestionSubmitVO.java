@@ -41,6 +41,11 @@ public class QuestionSubmitVO implements Serializable {
     private Integer status;
 
     /**
+     * 判题结果（如 AC / WA / TLE / MLE / RE / CE）
+     */
+    private String result;
+
+    /**
      * 题目 id
      */
     private Long questionId;
