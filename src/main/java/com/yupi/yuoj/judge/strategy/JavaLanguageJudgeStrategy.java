@@ -7,7 +7,6 @@ import com.yupi.yuoj.model.dto.question.JudgeCase;
 import com.yupi.yuoj.model.dto.question.JudgeConfig;
 import com.yupi.yuoj.model.entity.Question;
 import com.yupi.yuoj.model.enums.JudgeInfoMessageEnum;
-import com.yupi.yuoj.utils.MemoryUnitUtil;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -26,8 +25,10 @@ public class JavaLanguageJudgeStrategy implements JudgeStrategy {
     @Override
     public JudgeInfo doJudge(JudgeContext judgeContext) {
         JudgeInfo judgeInfo = judgeContext.getJudgeInfo();
-        Long memoryBytes = judgeInfo.getMemory();
-        long memoryKb = MemoryUnitUtil.bytesToKb(memoryBytes);
+        Long memoryKb = judgeInfo.getMemory();
+        if (memoryKb == null) {
+            memoryKb = 0L;
+        }
         Long time = judgeInfo.getTime();
         List<String> inputList = judgeContext.getInputList();
         List<String> outputList = judgeContext.getOutputList();

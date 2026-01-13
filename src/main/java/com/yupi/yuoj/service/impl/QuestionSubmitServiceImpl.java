@@ -5,8 +5,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yupi.yuoj.common.ErrorCode;
 import com.yupi.yuoj.constant.CommonConstant;
+import com.yupi.yuoj.constant.MqConstant;
 import com.yupi.yuoj.exception.BusinessException;
-import com.yupi.yuoj.judge.JudgeService;
 import com.yupi.yuoj.mapper.QuestionSubmitMapper;
 import com.yupi.yuoj.model.dto.questionsubmit.QuestionSubmitAddRequest;
 import com.yupi.yuoj.model.dto.questionsubmit.QuestionSubmitQueryRequest;
@@ -24,15 +24,13 @@ import com.yupi.yuoj.utils.SqlUtils;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.annotation.Resource;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -45,15 +43,20 @@ import java.util.stream.Collectors;
 public class QuestionSubmitServiceImpl extends ServiceImpl<QuestionSubmitMapper, QuestionSubmit>
     implements QuestionSubmitService{
 
-    @Resource
-    private QuestionService questionService;
 
-    @Resource
-    private UserService userService;
+    private final QuestionService questionService;
 
-    @Resource
-    @Lazy
-    private JudgeService judgeService;
+    private final UserService userService;
+
+    private final RabbitTemplate rabbitTemplate;
+
+    public QuestionSubmitServiceImpl(QuestionService questionService,
+                                     UserService userService,
+                                     RabbitTemplate rabbitTemplate) {
+        this.questionService = questionService;
+        this.userService = userService;
+        this.rabbitTemplate = rabbitTemplate;
+    }
 
     /**
      * 提交题目
@@ -100,13 +103,11 @@ public class QuestionSubmitServiceImpl extends ServiceImpl<QuestionSubmitMapper,
         }
         Long questionSubmitId = questionSubmit.getId();
         // 执行判题服务
-        CompletableFuture.runAsync(() -> {
-            try {
-                judgeService.doJudge(questionSubmitId);
-            } catch (Exception e) {
-                log.error("判题异步执行异常，提交id={}", questionSubmitId, e);
-            }
-        });
+        try {
+            rabbitTemplate.convertAndSend(MqConstant.JUDGE_QUEUE, String.valueOf(questionSubmitId));
+        } catch (Exception e) {
+            log.error("判题消息发送异常，submitId={}", questionSubmitId, e);
+        }
         return questionSubmitId;
     }
 

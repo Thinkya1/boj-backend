@@ -22,6 +22,12 @@ spring:
     url: jdbc:mysql://localhost:3306/boj
     username: root
     password: 123456
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: admin123
+    virtual-host: /
   # Redis 配置
   # todo 需替换配置，然后取消注释
 #  redis:

@@ -18,6 +18,7 @@ import com.yupi.yuoj.model.enums.JudgeInfoMessageEnum;
 import com.yupi.yuoj.model.enums.QuestionSubmitStatusEnum;
 import com.yupi.yuoj.service.QuestionService;
 import com.yupi.yuoj.service.QuestionSubmitService;
+import com.yupi.yuoj.utils.MemoryUnitUtil;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Resource;
@@ -89,6 +90,7 @@ public class JudgeServiceImpl implements JudgeService {
             if (executeCodeResponse == null || executeCodeResponse.getJudgeInfo() == null) {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "沙箱响应异常");
             }
+            normalizeMemoryUnit(executeCodeResponse);
 
             // 5) 判题策略生成结果
             JudgeContext judgeContext = new JudgeContext();
@@ -143,6 +145,20 @@ public class JudgeServiceImpl implements JudgeService {
                     .eq(QuestionSubmit::getIsDelete, 0);
             questionSubmitService.update(failUpdate, failWrapper);
             throw e;
+        }
+    }
+
+    private void normalizeMemoryUnit(ExecuteCodeResponse executeCodeResponse) {
+        JudgeInfo judgeInfo = executeCodeResponse.getJudgeInfo();
+        if (judgeInfo == null) {
+            return;
+        }
+        Long memory = judgeInfo.getMemory();
+        if (memory == null || memory <= 0) {
+            return;
+        }
+        if ("remote".equalsIgnoreCase(type)) {
+            judgeInfo.setMemory(MemoryUnitUtil.bytesToKb(memory));
         }
     }
 
