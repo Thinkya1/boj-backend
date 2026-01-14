@@ -67,7 +67,9 @@ public class DefaultJudgeStrategy implements JudgeStrategy {
         // 逐个比较输出
         for (int i = 0; i < judgeCaseList.size(); i++) {
             JudgeCase judgeCase = judgeCaseList.get(i);
-            if (!judgeCase.getOutput().equals(outputList.get(i))) {
+            String expected = normalizeOutput(judgeCase.getOutput());
+            String actual = normalizeOutput(outputList.get(i));
+            if (!expected.equals(actual)) {
                 return JudgeInfoMessageEnum.WRONG_ANSWER;
             }
         }
@@ -97,13 +99,45 @@ public class DefaultJudgeStrategy implements JudgeStrategy {
         }
         for (int i = 0; i < judgeCaseList.size(); i++) {
             JudgeCase judgeCase = judgeCaseList.get(i);
-            String actual = i < outputList.size() ? outputList.get(i) : null;
+            String expected = normalizeOutput(judgeCase == null ? null : judgeCase.getOutput());
+            String actual = normalizeOutput(i < outputList.size() ? outputList.get(i) : null);
             JudgeCaseResult result = new JudgeCaseResult();
             result.setIndex(i + 1);
-            result.setStatus(judgeCase != null && judgeCase.getOutput() != null
-                    && judgeCase.getOutput().equals(actual) ? "AC" : "WA");
+            result.setStatus(expected.equals(actual) ? "AC" : "WA");
             results.add(result);
         }
         return results;
+    }
+
+    private String normalizeOutput(String value) {
+        if (value == null) {
+            return "";
+        }
+        String normalized = value.replace("\r\n", "\n").replace("\r", "\n");
+        String[] lines = normalized.split("\n", -1);
+        int end = lines.length;
+        for (int i = 0; i < lines.length; i++) {
+            lines[i] = rtrimLine(lines[i]);
+        }
+        while (end > 0 && lines[end - 1].isEmpty()) {
+            end--;
+        }
+        if (end == 0) {
+            return "";
+        }
+        return String.join("\n", java.util.Arrays.copyOf(lines, end));
+    }
+
+    private String rtrimLine(String line) {
+        int end = line.length();
+        while (end > 0) {
+            char ch = line.charAt(end - 1);
+            if (ch == ' ' || ch == '\t') {
+                end--;
+            } else {
+                break;
+            }
+        }
+        return line.substring(0, end);
     }
 }
