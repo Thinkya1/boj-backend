@@ -97,3 +97,15 @@ cos:
 # 代码沙箱配置
 codesandbox:
   type: remote
+ai:
+  chat:
+    enabled: true
+    base-url: https://api.deepseek.com/v1
+    api-key: sk-faf4af248a654231808b20730872df5c
+    model: deepseek-chat
+    timeout-ms: 15000
+    stream-timeout-ms: 60000
+    max-output-tokens: 800
+    max-input-chars: 12000
+    max-history-messages: 10
+    temperature: 0.2

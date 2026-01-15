@@ -59,5 +59,24 @@ mvn -q -DskipTests spring-boot:run
 
 前端展示建议优先使用 `result`，样例级状态使用 `judgeInfo.caseResults[].status`。
 
+## AI 助手（可选）
+在题目编辑页提供 AI 对话助手，支持多轮对话与流式输出，返回修正代码的 unified diff。
+
+- 配置 `src/main/resources/application.yml` 中的 `ai.chat` 参数
+- 接口：`POST /ai/chat/stream`（SSE）
+  - 请求体示例：
+    ```json
+    {
+      "questionId": 1,
+      "language": "java",
+      "code": "public class Main { ... }",
+      "prompt": "请帮我修正超时问题",
+      "history": [
+        {"role": "user", "content": "之前的提问"},
+        {"role": "assistant", "content": "之前的回复"}
+      ]
+    }
+    ```
+
 ## 代码沙箱说明
 沙箱服务提供 `/executeCode` 接口，支持 Docker 隔离执行，限制 CPU/内存/网络，并返回输出与资源占用。
