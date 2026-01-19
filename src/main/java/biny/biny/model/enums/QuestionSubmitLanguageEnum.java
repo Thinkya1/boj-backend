@@ -16,7 +16,8 @@ public enum QuestionSubmitLanguageEnum {
     JAVA("java", "java"),
     PYTHON("python", "python"),
     JAVASCRIPT("javascript", "javascript"),
-    GCC("gcc", "gcc");
+    GCC("gcc", "gcc"),
+    CPP("cpp", "cpp");
 
     private final String text;
 
@@ -45,6 +46,12 @@ public enum QuestionSubmitLanguageEnum {
     public static QuestionSubmitLanguageEnum getEnumByValue(String value) {
         if (ObjectUtils.isEmpty(value)) {
             return null;
+        }
+        if ("js".equalsIgnoreCase(value)) {
+            return JAVASCRIPT;
+        }
+        if ("c++".equalsIgnoreCase(value)) {
+            return CPP;
         }
         for (QuestionSubmitLanguageEnum anEnum : QuestionSubmitLanguageEnum.values()) {
             if (anEnum.value.equals(value)) {

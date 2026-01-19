@@ -73,6 +73,7 @@ public class QuestionSubmitServiceImpl extends ServiceImpl<QuestionSubmitMapper,
         if (languageEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "编程语言错误");
         }
+        language = languageEnum.getValue();
         long questionId = questionSubmitAddRequest.getQuestionId();
         // 判断实体是否存在，根据类别获取实体
         Question question = questionService.getById(questionId);
@@ -125,6 +126,12 @@ public class QuestionSubmitServiceImpl extends ServiceImpl<QuestionSubmitMapper,
             return queryWrapper;
         }
         String language = questionSubmitQueryRequest.getLanguage();
+        if (StringUtils.isNotBlank(language)) {
+            QuestionSubmitLanguageEnum languageEnum = QuestionSubmitLanguageEnum.getEnumByValue(language);
+            if (languageEnum != null) {
+                language = languageEnum.getValue();
+            }
+        }
         Integer status = questionSubmitQueryRequest.getStatus();
         Long questionId = questionSubmitQueryRequest.getQuestionId();
         Integer questionNumber = questionSubmitQueryRequest.getQuestionNumber();
