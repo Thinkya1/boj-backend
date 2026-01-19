@@ -101,7 +101,7 @@ ai:
   chat:
     enabled: true
     base-url: https://api.deepseek.com/v1
-    api-key: sk-faf4af248a654231808b20730872df5c
+    api-key: sk-6f224cf88df14013a55754b4b0cd17ce
     model: deepseek-chat
     timeout-ms: 15000
     stream-timeout-ms: 60000

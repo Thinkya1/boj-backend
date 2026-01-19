@@ -60,7 +60,7 @@ mvn -q -DskipTests spring-boot:run
 前端展示建议优先使用 `result`，样例级状态使用 `judgeInfo.caseResults[].status`。
 
 ## AI 助手（可选）
-在题目编辑页提供 AI 对话助手，支持多轮对话与流式输出，返回修正代码的 unified diff。
+在题目编辑页提供 AI 对话助手，基于 LangChain4j 接入 DeepSeek（OpenAI 兼容接口），支持多轮对话与流式输出，返回修正代码的 unified diff。
 
 - 配置 `src/main/resources/application.yml` 中的 `ai.chat` 参数
 - 接口：`POST /ai/chat/stream`（SSE）

@@ -1,12 +1,18 @@
 package com.yupi.yuoj.service;
 
-import com.yupi.yuoj.ai.DeepSeekChatClient;
+import com.yupi.yuoj.ai.AiChatModelFactory;
 import com.yupi.yuoj.config.AiChatProperties;
 import com.yupi.yuoj.model.dto.ai.AiChatMessage;
 import com.yupi.yuoj.model.dto.ai.AiChatRequest;
 import com.yupi.yuoj.model.entity.Question;
 import com.yupi.yuoj.model.entity.User;
 import com.yupi.yuoj.service.impl.AiChatServiceImpl;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.ChatMessageType;
+import dev.langchain4j.model.StreamingResponseHandler;
+import dev.langchain4j.model.chat.StreamingChatLanguageModel;
+import dev.langchain4j.model.output.Response;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -27,8 +33,13 @@ class AiChatServiceImplTest {
         properties.setEnabled(true);
         properties.setStreamTimeoutMs(1000);
         properties.setMaxHistoryMessages(2);
+        properties.setApiKey("test-key");
+        properties.setBaseUrl("https://api.deepseek.com/v1");
+        properties.setModel("deepseek-chat");
 
-        DeepSeekChatClient chatClient = Mockito.mock(DeepSeekChatClient.class);
+        StreamingChatLanguageModel chatModel = Mockito.mock(StreamingChatLanguageModel.class);
+        AiChatModelFactory modelFactory = Mockito.mock(AiChatModelFactory.class);
+        Mockito.when(modelFactory.create(Mockito.any())).thenReturn(chatModel);
         QuestionService questionService = Mockito.mock(QuestionService.class);
         Question question = new Question();
         question.setId(1L);
@@ -36,7 +47,7 @@ class AiChatServiceImplTest {
         question.setContent("输入两个整数，输出它们的和。");
         Mockito.when(questionService.getById(1L)).thenReturn(question);
 
-        AiChatServiceImpl service = new AiChatServiceImpl(properties, chatClient, questionService);
+        AiChatServiceImpl service = new AiChatServiceImpl(properties, modelFactory, questionService);
 
         AiChatMessage historyUser = new AiChatMessage();
         historyUser.setRole("user");
@@ -56,19 +67,23 @@ class AiChatServiceImplTest {
         loginUser.setId(1L);
 
         CountDownLatch latch = new CountDownLatch(1);
-        ArgumentCaptor<List<AiChatMessage>> captor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<ChatMessage>> captor = ArgumentCaptor.forClass(List.class);
         Mockito.doAnswer(invocation -> {
+            StreamingResponseHandler<AiMessage> handler = invocation.getArgument(1);
+            handler.onNext("ok");
+            handler.onComplete(Response.from(AiMessage.from("done")));
             latch.countDown();
             return null;
-        }).when(chatClient).streamChat(captor.capture(), Mockito.any());
+        }).when(chatModel).generate(captor.capture(), Mockito.any());
 
         service.streamChat(request, loginUser);
 
         boolean called = latch.await(1, TimeUnit.SECONDS);
         Assertions.assertTrue(called);
-        List<AiChatMessage> messages = captor.getValue();
+        List<ChatMessage> messages = captor.getValue();
         Assertions.assertFalse(messages.isEmpty());
-        Assertions.assertEquals("system", messages.get(0).getRole());
-        Assertions.assertTrue(messages.get(messages.size() - 1).getContent().contains("当前代码"));
+        Assertions.assertEquals(ChatMessageType.SYSTEM, messages.get(0).type());
+        Assertions.assertEquals(ChatMessageType.USER, messages.get(messages.size() - 1).type());
+        Assertions.assertTrue(messages.get(messages.size() - 1).text().contains("当前代码"));
     }
 }

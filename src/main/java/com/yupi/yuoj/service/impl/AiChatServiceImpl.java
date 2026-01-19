@@ -1,6 +1,6 @@
 package com.yupi.yuoj.service.impl;
 
-import com.yupi.yuoj.ai.DeepSeekChatClient;
+import com.yupi.yuoj.ai.AiChatModelFactory;
 import com.yupi.yuoj.common.ErrorCode;
 import com.yupi.yuoj.config.AiChatProperties;
 import com.yupi.yuoj.exception.BusinessException;
@@ -10,6 +10,13 @@ import com.yupi.yuoj.model.entity.Question;
 import com.yupi.yuoj.model.entity.User;
 import com.yupi.yuoj.service.AiChatService;
 import com.yupi.yuoj.service.QuestionService;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.StreamingResponseHandler;
+import dev.langchain4j.model.chat.StreamingChatLanguageModel;
+import dev.langchain4j.model.output.Response;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,15 +46,17 @@ public class AiChatServiceImpl implements AiChatService {
 
     private final AiChatProperties properties;
 
-    private final DeepSeekChatClient chatClient;
+    private final AiChatModelFactory chatModelFactory;
 
     private final QuestionService questionService;
 
+    private volatile StreamingChatLanguageModel chatModel;
+
     public AiChatServiceImpl(AiChatProperties properties,
-                             DeepSeekChatClient chatClient,
+                             AiChatModelFactory chatModelFactory,
                              QuestionService questionService) {
         this.properties = properties;
-        this.chatClient = chatClient;
+        this.chatModelFactory = chatModelFactory;
         this.questionService = questionService;
     }
 
@@ -77,13 +86,29 @@ public class AiChatServiceImpl implements AiChatService {
         if (question == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "题目不存在");
         }
-        List<AiChatMessage> messages = buildMessages(request, question);
+        validateConfig();
+        List<ChatMessage> messages = buildMessages(request, question);
         SseEmitter emitter = new SseEmitter(properties.getStreamTimeoutMs());
         CompletableFuture.runAsync(() -> {
             try {
-                chatClient.streamChat(messages, chunk -> sendChunk(emitter, chunk));
-                sendChunk(emitter, "[DONE]");
-                emitter.complete();
+                StreamingChatLanguageModel model = getChatModel();
+                model.generate(messages, new StreamingResponseHandler<AiMessage>() {
+                    @Override
+                    public void onNext(String token) {
+                        sendChunk(emitter, token);
+                    }
+
+                    @Override
+                    public void onComplete(Response<AiMessage> response) {
+                        sendChunk(emitter, "[DONE]");
+                        emitter.complete();
+                    }
+
+                    @Override
+                    public void onError(Throwable error) {
+                        emitter.completeWithError(error);
+                    }
+                });
             } catch (Exception e) {
                 emitter.completeWithError(e);
             }
@@ -91,20 +116,19 @@ public class AiChatServiceImpl implements AiChatService {
         return emitter;
     }
 
-    private List<AiChatMessage> buildMessages(AiChatRequest request, Question question) {
-        List<AiChatMessage> messages = new ArrayList<>();
-        AiChatMessage system = new AiChatMessage();
-        system.setRole("system");
-        system.setContent(SYSTEM_PROMPT);
-        messages.add(system);
+    private List<ChatMessage> buildMessages(AiChatRequest request, Question question) {
+        List<ChatMessage> messages = new ArrayList<>();
+        messages.add(SystemMessage.from(SYSTEM_PROMPT));
 
         List<AiChatMessage> history = trimHistory(request.getHistory());
-        messages.addAll(history);
+        for (AiChatMessage item : history) {
+            ChatMessage chatMessage = toChatMessage(item);
+            if (chatMessage != null) {
+                messages.add(chatMessage);
+            }
+        }
 
-        AiChatMessage user = new AiChatMessage();
-        user.setRole("user");
-        user.setContent(buildUserPrompt(request, question));
-        messages.add(user);
+        messages.add(UserMessage.from(buildUserPrompt(request, question)));
         return messages;
     }
 
@@ -131,6 +155,20 @@ public class AiChatServiceImpl implements AiChatService {
     private boolean isRoleSupported(String role) {
         String normalized = role.toLowerCase(Locale.ROOT);
         return "user".equals(normalized) || "assistant".equals(normalized);
+    }
+
+    private ChatMessage toChatMessage(AiChatMessage message) {
+        if (message == null || StringUtils.isBlank(message.getRole())) {
+            return null;
+        }
+        String role = message.getRole().toLowerCase(Locale.ROOT);
+        if ("user".equals(role)) {
+            return UserMessage.from(message.getContent());
+        }
+        if ("assistant".equals(role)) {
+            return AiMessage.from(message.getContent());
+        }
+        return null;
     }
 
     private String buildUserPrompt(AiChatRequest request, Question question) {
@@ -178,5 +216,29 @@ public class AiChatServiceImpl implements AiChatService {
         } catch (IOException e) {
             emitter.completeWithError(e);
         }
+    }
+
+    private void validateConfig() {
+        if (StringUtils.isBlank(properties.getApiKey())) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "AI Key 未配置");
+        }
+        if (StringUtils.isBlank(properties.getBaseUrl())) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "AI BaseUrl 未配置");
+        }
+        if (StringUtils.isBlank(properties.getModel())) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "AI 模型未配置");
+        }
+    }
+
+    private StreamingChatLanguageModel getChatModel() {
+        if (chatModel != null) {
+            return chatModel;
+        }
+        synchronized (this) {
+            if (chatModel == null) {
+                chatModel = chatModelFactory.create(properties);
+            }
+        }
+        return chatModel;
     }
 }
