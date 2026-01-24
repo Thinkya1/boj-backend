@@ -12,17 +12,21 @@ import biny.biny.judge.codesandbox.model.ExecuteCodeResponse;
 import biny.biny.judge.codesandbox.model.JudgeInfo;
 import biny.biny.judge.strategy.JudgeContext;
 import biny.biny.model.dto.question.JudgeCase;
+import biny.biny.model.dto.questionsubmit.QuestionSubmitAddRequest;
 import biny.biny.model.entity.Question;
 import biny.biny.model.entity.QuestionSubmit;
 import biny.biny.model.enums.JudgeInfoMessageEnum;
+import biny.biny.model.enums.QuestionSubmitLanguageEnum;
 import biny.biny.model.enums.QuestionSubmitStatusEnum;
 import biny.biny.service.QuestionService;
 import biny.biny.service.QuestionSubmitService;
 import biny.biny.utils.MemoryUnitUtil;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -146,6 +150,82 @@ public class JudgeServiceImpl implements JudgeService {
             questionSubmitService.update(failUpdate, failWrapper);
             throw e;
         }
+    }
+
+    @Override
+    public ExecuteCodeResponse runQuestion(QuestionSubmitAddRequest questionSubmitAddRequest) {
+        if (questionSubmitAddRequest == null || questionSubmitAddRequest.getQuestionId() == null
+                || questionSubmitAddRequest.getQuestionId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        String language = questionSubmitAddRequest.getLanguage();
+        QuestionSubmitLanguageEnum languageEnum = QuestionSubmitLanguageEnum.getEnumByValue(language);
+        if (languageEnum == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "编程语言错误");
+        }
+        String code = questionSubmitAddRequest.getCode();
+        if (StringUtils.isBlank(code)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "代码为空");
+        }
+        Question question = questionService.getById(questionSubmitAddRequest.getQuestionId());
+        if (question == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "题目不存在");
+        }
+        String sampleCaseStr = question.getSampleCase();
+        List<JudgeCase> sampleCaseList = StringUtils.isBlank(sampleCaseStr)
+                ? Collections.emptyList()
+                : JSONUtil.toList(sampleCaseStr, JudgeCase.class);
+        if (sampleCaseList == null) {
+            sampleCaseList = Collections.emptyList();
+        }
+        if (CollectionUtils.isEmpty(sampleCaseList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "示例用例为空");
+        }
+        List<String> inputList = sampleCaseList.stream().map(JudgeCase::getInput).collect(Collectors.toList());
+        CodeSandbox codeSandbox = CodeSandboxFactory.newInstance(type);
+        codeSandbox = new CodeSandboxProxy(codeSandbox);
+        ExecuteCodeRequest executeCodeRequest = ExecuteCodeRequest.builder()
+                .code(code)
+                .language(languageEnum.getValue())
+                .inputList(inputList)
+                .build();
+        ExecuteCodeResponse executeCodeResponse = codeSandbox.executeCode(executeCodeRequest);
+        if (executeCodeResponse == null || executeCodeResponse.getJudgeInfo() == null) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "沙箱响应异常");
+        }
+        normalizeMemoryUnit(executeCodeResponse);
+        Integer status = executeCodeResponse.getStatus();
+        if (!Integer.valueOf(1).equals(status)) {
+            JudgeInfo errorInfo = executeCodeResponse.getJudgeInfo();
+            if (errorInfo == null) {
+                errorInfo = new JudgeInfo();
+                executeCodeResponse.setJudgeInfo(errorInfo);
+            }
+            if (StringUtils.isBlank(errorInfo.getMessage())) {
+                errorInfo.setMessage(executeCodeResponse.getMessage());
+            }
+            executeCodeResponse.setStatus(QuestionSubmitStatusEnum.FAILED.getValue());
+            return executeCodeResponse;
+        }
+        QuestionSubmit questionSubmit = new QuestionSubmit();
+        questionSubmit.setLanguage(languageEnum.getValue());
+        JudgeContext judgeContext = new JudgeContext();
+        judgeContext.setJudgeInfo(executeCodeResponse.getJudgeInfo());
+        judgeContext.setInputList(inputList);
+        judgeContext.setOutputList(executeCodeResponse.getOutputList());
+        judgeContext.setJudgeCaseList(sampleCaseList);
+        judgeContext.setQuestion(question);
+        judgeContext.setQuestionSubmit(questionSubmit);
+        JudgeInfo judgeInfo = judgeManager.doJudge(judgeContext);
+        executeCodeResponse.setJudgeInfo(judgeInfo);
+        JudgeInfoMessageEnum messageEnum = getJudgeInfoMessageEnum(judgeInfo.getMessage());
+        if (JudgeInfoMessageEnum.ACCEPTED.equals(messageEnum)) {
+            executeCodeResponse.setStatus(QuestionSubmitStatusEnum.SUCCEED.getValue());
+        } else {
+            executeCodeResponse.setStatus(QuestionSubmitStatusEnum.FAILED.getValue());
+        }
+        executeCodeResponse.setMessage(judgeInfo.getMessage());
+        return executeCodeResponse;
     }
 
     private void normalizeMemoryUnit(ExecuteCodeResponse executeCodeResponse) {

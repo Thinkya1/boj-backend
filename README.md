@@ -13,8 +13,7 @@
 - Spring Boot 2.7.x
 - MyBatis-Plus 3.5.x
 - MySQL 8.x
-- Redis（可选）
-- Elasticsearch（可选）
+- Redis
 - Docker（沙箱执行）
 
 ## 环境要求
@@ -46,7 +45,7 @@ codesandbox:
 mvn -q -DskipTests spring-boot:run
 ```
 
-4. 启动沙箱（可选，`codesandbox.type=remote` 时需要）
+4. 启动沙箱（`codesandbox.type=remote` 时需要）
 ```bash
 cd sandbox
 mvn -q -DskipTests spring-boot:run
@@ -59,7 +58,7 @@ mvn -q -DskipTests spring-boot:run
 
 前端展示建议优先使用 `result`，样例级状态使用 `judgeInfo.caseResults[].status`。
 
-## AI 助手（可选）
+## AI 助手
 在题目编辑页提供 AI 对话助手，基于 LangChain4j 接入 DeepSeek（OpenAI 兼容接口），支持多轮对话与流式输出，返回修正代码的 unified diff。
 
 - 配置 `src/main/resources/application.yml` 中的 `ai.chat` 参数

@@ -2,12 +2,14 @@ package biny.biny.model.vo;
 
 import cn.hutool.json.JSONUtil;
 import biny.biny.model.dto.question.JudgeConfig;
+import biny.biny.model.dto.question.JudgeCase;
 import biny.biny.model.entity.Question;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;
+import org.apache.commons.lang3.StringUtils;
 
 
 @Data
@@ -29,6 +31,8 @@ public class QuestionVO implements Serializable {
     private Integer acceptedNum;
 
     private JudgeConfig judgeConfig;
+
+    private List<JudgeCase> sampleCase;
 
     private Integer thumbNum;
 
@@ -56,6 +60,10 @@ public class QuestionVO implements Serializable {
         if (voJudgeConfig != null) {
             question.setJudgeConfig(JSONUtil.toJsonStr(voJudgeConfig));
         }
+        List<JudgeCase> sampleCaseList = questionVO.getSampleCase();
+        if (sampleCaseList != null) {
+            question.setSampleCase(JSONUtil.toJsonStr(sampleCaseList));
+        }
         return question;
     }
 
@@ -69,6 +77,10 @@ public class QuestionVO implements Serializable {
         questionVO.setTags(tagList);
         String judgeConfigStr = question.getJudgeConfig();
         questionVO.setJudgeConfig(JSONUtil.toBean(judgeConfigStr, JudgeConfig.class));
+        String sampleCaseStr = question.getSampleCase();
+        if (StringUtils.isNotBlank(sampleCaseStr)) {
+            questionVO.setSampleCase(JSONUtil.toList(sampleCaseStr, JudgeCase.class));
+        }
         return questionVO;
     }
 

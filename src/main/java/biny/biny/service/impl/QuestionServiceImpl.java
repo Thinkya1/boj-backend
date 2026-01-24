@@ -53,6 +53,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question>
         String tags = question.getTags();
         String answer = question.getAnswer();
         String judgeCase = question.getJudgeCase();
+        String sampleCase = question.getSampleCase();
         String judgeConfig = question.getJudgeConfig();
         // 创建时，参数不能为空
         if (add) {
@@ -70,6 +71,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question>
         }
         if (StringUtils.isNotBlank(judgeCase) && judgeCase.length() > 8192) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "判题用例过长");
+        }
+        if (StringUtils.isNotBlank(sampleCase) && sampleCase.length() > 8192) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "示例用例过长");
         }
         if (StringUtils.isNotBlank(judgeConfig) && judgeConfig.length() > 8192) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "判题配置过长");

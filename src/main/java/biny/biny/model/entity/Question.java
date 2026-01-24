@@ -60,6 +60,11 @@ public class Question implements Serializable {
     private String judgeCase;
 
     /**
+     * 示例用例（json 数组）
+     */
+    private String sampleCase;
+
+    /**
      * 判题配置（json 对象）
      */
     private String judgeConfig;

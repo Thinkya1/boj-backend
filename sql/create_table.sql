@@ -1,6 +1,4 @@
 # 数据库初始化
-# @author <a href="https://github.com/liyupi">程序员鱼皮</a>
-# @from <a href="https://yupi.icu">编程导航知识星球</a>
 
 -- 创建库
 create database if not exists boj;
@@ -38,6 +36,7 @@ create table if not exists question
     submitNum      int      default 0                 not null comment '题目提交数',
     acceptedNum    int      default 0                 not null comment '题目通过数',
     judgeCase      text                               null comment '判题用例（json数组）',
+    sampleCase     text                               null comment '示例用例（json数组）',
     judgeConfig    text                               null comment '判题配置（json对象）',
     thumbNum       int      default 0                 not null comment '点赞数',
     favourNum      int      default 0                 not null comment '收藏数',

@@ -69,6 +69,10 @@ public class QuestionController {
         if (judgeCase != null) {
             question.setJudgeCase(GSON.toJson(judgeCase));
         }
+        List<JudgeCase> sampleCase = questionAddRequest.getSampleCase();
+        if (sampleCase != null) {
+            question.setSampleCase(GSON.toJson(sampleCase));
+        }
         JudgeConfig judgeConfig = questionAddRequest.getJudgeConfig();
         if (judgeConfig != null) {
             question.setJudgeConfig(GSON.toJson(judgeConfig));
@@ -133,6 +137,10 @@ public class QuestionController {
         List<JudgeCase> judgeCase = questionUpdateRequest.getJudgeCase();
         if (judgeCase != null) {
             question.setJudgeCase(GSON.toJson(judgeCase));
+        }
+        List<JudgeCase> sampleCase = questionUpdateRequest.getSampleCase();
+        if (sampleCase != null) {
+            question.setSampleCase(GSON.toJson(sampleCase));
         }
         JudgeConfig judgeConfig = questionUpdateRequest.getJudgeConfig();
         if (judgeConfig != null) {
@@ -273,6 +281,10 @@ public class QuestionController {
         List<JudgeCase> judgeCase = questionEditRequest.getJudgeCase();
         if (judgeCase != null) {
             question.setJudgeCase(GSON.toJson(judgeCase));
+        }
+        List<JudgeCase> sampleCase = questionEditRequest.getSampleCase();
+        if (sampleCase != null) {
+            question.setSampleCase(GSON.toJson(sampleCase));
         }
         JudgeConfig judgeConfig = questionEditRequest.getJudgeConfig();
         if (judgeConfig != null) {
